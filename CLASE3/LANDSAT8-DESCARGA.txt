@@ -1,0 +1,69 @@
+///////////////////////////////////////////////////
+// TÍTULO : DESCARGA DE IMAGENES SATELITALES DE LA PLATAFORMA LANDSAT 8
+// PLATAFORMA : Landsat-8 image courtesy of the U.S. Geological Survey
+// AUTOR : Marvin J. Quispe Sedano
+// CONTACTO : marvinjqs@gmail.com
+///////////////////////////////////////////////////
+
+// IMPORTAR UN SHAPEFILE CON EL AREA DE ESTUDIO O DIBUJARLO EN EL MAPA
+
+// geometry = NOMBRE DE LA VARIABLE DEL AREA DE ESTUDIO
+
+var geometry = table.geometry()
+Map.centerObject(geometry);
+Map.addLayer(geometry);
+
+// Seleccionar las imagenes satelitales a descargar
+
+var collection = ee.ImageCollection("LANDSAT/LC08/C01/T1_TOA")
+
+var ls8_image = ee.Image(collection
+                      .filterDate('2019-08-01', '2019-10-15')
+                      .filterBounds(geometry)
+                      .sort('CLOUDY_PIXEL_PERCENTAGE',true)
+                      .median() );
+
+
+// Hacer el recorte para el area de interes 
+
+var ls8_image_clip = ls8_image.clip(geometry);
+
+// Presentar la paleta de colores de color verdadero 
+
+var trueColor432 = ls8_image_clip.select(['B4', 'B3', 'B2']);
+
+var trueColor432Vis = {
+  min: 0.0,
+  max: 0.4,
+};
+
+
+Map.addLayer(trueColor432, trueColor432Vis, "LANDSAT 8 - TRUE COLOR")
+
+// Obtener NDVI
+
+function addNDVI(image) {
+  var ndvi= image.expression("(nir-red)/(nir+red)", {
+    nir: image.select("B5"),
+    red: image.select("B4")
+  })
+  return ndvi
+  }
+  
+var palette_ndvi = {
+  min: -1,
+  max: 1,
+  palette: ['black', 'blue', 'purple', 'cyan', 'green', 'yellow', 'red']
+};
+
+
+Map.addLayer(addNDVI(ls8_image_clip), palette_ndvi, "NDVI")
+
+// Exportar data a google drive
+
+Export.image.toDrive({
+  image: ls8_image_clip.toFloat(),
+  description: "ls8_image",
+  scale: 30,
+  region: geometry});
+  
